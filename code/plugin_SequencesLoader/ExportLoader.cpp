@@ -1,6 +1,6 @@
 /*
- *  Ray -- Parallel genome assemblies for parallel DNA sequencing
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+ 	Ray
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -19,7 +19,7 @@
 
 */
 
-#include "FastqLoader.h"
+#include "ExportLoader.h"
 
 #include <code/plugin_Mock/constants.h>
 
@@ -27,24 +27,14 @@
 #include <stdlib.h>
 using namespace std;
 
-int FastqLoader::open(string file){
-	return openWithPeriod(file,4);
-}
-
-int FastqLoader::openWithPeriod(string file,int period){
+int ExportLoader::open(string file){
 	m_f=fopen(file.c_str(),"r");
 	m_size=0;
 	m_loaded=0;
-	int rotatingVariable=0;
 	char buffer[RAY_MAXIMUM_READ_LENGTH];
+
 	while(NULL!=fgets(buffer,RAY_MAXIMUM_READ_LENGTH,m_f)){
-		if(rotatingVariable==1){
-			m_size++;
-		}
-		rotatingVariable++;
-		if(rotatingVariable==period){
-			rotatingVariable=0;
-		}
+		m_size++;
 	}
 
 	fclose(m_f);
@@ -52,29 +42,52 @@ int FastqLoader::openWithPeriod(string file,int period){
 	return EXIT_SUCCESS;
 }
 
-void FastqLoader::load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator){
-	loadWithPeriod(maxToLoad,reads,seqMyAllocator,4);
-}
-
-void FastqLoader::loadWithPeriod(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator,int period){
+void ExportLoader::load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator){
 	char buffer[RAY_MAXIMUM_READ_LENGTH];
-	int rotatingVariable=0;
 	int loadedSequences=0;
 
 	while(loadedSequences<maxToLoad && NULL!=fgets(buffer,RAY_MAXIMUM_READ_LENGTH,m_f)){
-		if(rotatingVariable==1){
-			Read t;
-			t.constructor(buffer,seqMyAllocator,true);
-			reads->push_back(&t);
-		}
-		rotatingVariable++;
 
-		// a period is reached for each read.
-		if(rotatingVariable==period){
-			rotatingVariable=0;
-			loadedSequences++;
-			m_loaded++;
+// find the 9th column
+// index 8 if 0-based
+// 1 -> 1 \t
+// 2 -> 2 \t
+// 8 -> 8 \t
+// 
+// find the 8th \t 
+// then find the 9th \t
+
+		int theLength=strlen(buffer);
+		int positionFor8thTabulation=0;
+		int positionFor9thTabulation=0;
+		int tabulations=0;
+		int position=0;
+
+		while(position<theLength){
+			if(buffer[position]=='\t')
+				tabulations++;
+
+			if(tabulations==8 && positionFor8thTabulation==0)
+				positionFor8thTabulation=position;
+			if(tabulations==9 && positionFor9thTabulation==0)
+				positionFor9thTabulation=position;
+
+			position++;
 		}
+
+		buffer[positionFor9thTabulation]='\0';
+		char*dnaSequence=buffer+positionFor8thTabulation+1;
+
+#ifdef DEBUG_EXPORT_FORMAT
+		cout<<" ExportLoader -> <sequence>"<<dnaSequence<<"</sequence>"<<endl;
+#endif
+
+		Read t;
+		t.constructor(dnaSequence,seqMyAllocator,true);
+		reads->push_back(&t);
+
+		loadedSequences++;
+		m_loaded++;
 	}
 
 	if(m_loaded==m_size){
@@ -82,9 +95,9 @@ void FastqLoader::loadWithPeriod(int maxToLoad,ArrayOfReads*reads,MyAllocator*se
 	}
 }
 
-int FastqLoader::getSize(){
+int ExportLoader::getSize(){
 	return m_size;
 }
 
-void FastqLoader::close(){
+void ExportLoader::close(){
 }

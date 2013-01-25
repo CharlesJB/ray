@@ -14,7 +14,7 @@ Ray
     GNU General Public License for more details.
 
     You have received a copy of the GNU General Public License
-    along with this program (gpl-3.0.txt).  
+    along with this program (gpl-3.0.txt).
 	see <http://www.gnu.org/licenses/>
 
 */
@@ -43,7 +43,7 @@ __CreateMessageTagAdapter(SequencesLoader,RAY_MPI_TAG_SET_FILE_ENTRIES);
 
 using namespace std;
 
-#define NUMBER_OF_SEQUENCES_PERIOD 10000
+#define NUMBER_OF_SEQUENCES_PERIOD 100000
 
 void SequencesLoader::registerSequence(){
 	if(m_myReads->size()% NUMBER_OF_SEQUENCES_PERIOD ==0){
@@ -210,7 +210,6 @@ bool SequencesLoader::writeSequencesToAMOSFile(int rank,int size,
 			return false;
 		}
 
-		fflush(stdout);
 		// write Reads in AMOS format.
 		if(rank==MASTER_RANK&&m_parameters->useAmos()){
 			char qlt[20000];
@@ -248,12 +247,10 @@ bool SequencesLoader::writeSequencesToAMOSFile(int rank,int size,
 bool SequencesLoader::call_RAY_SLAVE_MODE_LOAD_SEQUENCES(){
 
 	printf("Rank %i is loading sequence reads\n",m_rank);
-	fflush(stdout);
 
 	/* check if the checkpoint exists */
 	if(m_parameters->hasCheckpoint("Sequences")){
 		cout<<"Rank "<<m_parameters->getRank()<<" is reading checkpoint Sequences"<<endl;
-		cout.flush();
 
 		ifstream f(m_parameters->getCheckpointFile("Sequences").c_str());
 		LargeCount count=0;
@@ -368,7 +365,6 @@ bool SequencesLoader::call_RAY_SLAVE_MODE_LOAD_SEQUENCES(){
 	if(m_parameters->writeCheckpoints() && !m_parameters->hasCheckpoint("Sequences")){
 		/* announce the user that we are writing a checkpoint */
 		cout<<"Rank "<<m_parameters->getRank()<<" is writing checkpoint Sequences"<<endl;
-		cout.flush();
 
 		ofstream f(m_parameters->getCheckpointFile("Sequences").c_str());
 

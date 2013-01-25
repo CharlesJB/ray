@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -50,12 +50,6 @@ using namespace std;
  * with a uint64_t 
  */
 #define __DEFAULT_BUCKETS_PER_GROUP 64
-
-// 8 bytes
-/*
- * The default number of bits in the Bloom filter.
- */
-#define __BLOOM_DEFAULT_BITS 268435456 //64000000
 
 /**
  * This class is the implementation of an interpreter for the RayInputFile.
@@ -163,6 +157,7 @@ class Parameters{
 	void __shuffleOperationCodes();
 
 	bool isValidInteger(const char*textMessage);
+	string getLibraryGlobalFile();
 public:
 	Parameters();
 	string getReceivedMessagesFile();

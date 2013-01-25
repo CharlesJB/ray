@@ -1,6 +1,6 @@
 /*
  	Ray
-    Copyright (C) 2011, 2012 Sébastien Boisvert
+    Copyright (C) 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -439,7 +439,9 @@ void Scaffolder::getCoverageOfBlockOfLife(){
 // ask for the coverage value
 		if(!m_coverageRequested){
 
-			Kmer*vertex=m_contigs->at(m_contigId).at(m_positionOnContig);
+			Kmer vertex2;
+			m_contigs->at(m_contigId).at(m_positionOnContig,&vertex2);
+			Kmer*vertex=&vertex2;
 
 			MessageUnit*buffer=(MessageUnit*)m_outboxAllocator->allocate(1*sizeof(Kmer));
 			int bufferPosition=0;
@@ -655,7 +657,8 @@ void Scaffolder::performSummary(){
 
 		for(int i=0;i<vertices;i++){
 
-			Kmer kmer=*((*m_contigs)[m_contigId].at(i));
+			Kmer kmer;
+			(*m_contigs)[m_contigId].at(i,&kmer);
 			CoverageDepth coverage=m_vertexCoverageValues[i];
 
 			fp<<i<<"	"<<kmer.idToWord(m_parameters->getWordSize(),m_parameters->getColorSpaceMode())<<"	"<<coverage<<endl;
@@ -728,7 +731,8 @@ void Scaffolder::processContigPosition(){
 	assert(m_positionOnContig<(int)(*m_contigs)[m_contigId].size());
 	#endif
 
-	Kmer vertex=*((*m_contigs)[m_contigId].at(m_positionOnContig));
+	Kmer vertex;
+	(*m_contigs)[m_contigId].at(m_positionOnContig,&vertex);
 
 	#ifdef ASSERT
 	assert(m_parameters!=NULL);
@@ -783,7 +787,8 @@ void Scaffolder::processVertex(Kmer*vertex){
 		
 			m_vertexCoverageValues.clear();
 		}
-		if(m_positionOnContig==(int)(*m_contigs)[m_contigId].size()-1){
+		if(m_positionOnContig==(int)(*m_contigs)[m_contigId].size()-1 && m_contigId%1000==0){
+
 			printf("Rank %i: gathering scaffold links [%i/%i] [%i/%i] (completed)\n",m_parameters->getRank(),
 				m_contigId+1,(int)(*m_contigs).size(),
 				m_positionOnContig+1,(int)(*m_contigs)[m_contigId].size());
@@ -798,7 +803,7 @@ void Scaffolder::processVertex(Kmer*vertex){
 			}
 
 
-		}else if(m_positionOnContig%10000==0){
+		}else if(m_positionOnContig%10000==0 && m_positionOnContig>0){
 			printf("Rank %i: gathering scaffold links [%i/%i] [%i/%i]\n",m_parameters->getRank(),
 				m_contigId+1,(int)(*m_contigs).size(),
 				m_positionOnContig+1,(int)(*m_contigs)[m_contigId].size());
@@ -1424,6 +1429,7 @@ void Scaffolder::getContigSequence(PathHandle id){
 		m_theLength=m_contigLengths[id];
 		m_position=0;
 		m_contigPath.clear();
+		m_contigPath.setKmerLength(m_parameters->getWordSize());
 		m_requestedContigChunk=false;
 	}
 	

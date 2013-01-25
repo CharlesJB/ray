@@ -256,7 +256,6 @@ void MachineHelper::call_RAY_MASTER_MODE_SEND_COVERAGE_VALUES (){
 	m_parameters->setRepeatCoverage(distribution.getRepeatCoverage());
 
 	printf("\n");
-	fflush(stdout);
 
 	cout<<endl;
 	cout<<"Rank "<<getRank()<<": the minimum coverage is "<<m_parameters->getMinimumCoverage()<<endl;
@@ -728,7 +727,9 @@ void MachineHelper::call_RAY_SLAVE_MODE_SEND_EXTENSION_DATA(){
 			f.write((char*)&name,sizeof(PathHandle));
 			f.write((char*)&vertices,sizeof(int));
 			for(int j=0;j<vertices;j++){
-				m_ed->m_EXTENSION_contigs[i].at(j)->write(&f);
+				Kmer kmer;
+				m_ed->m_EXTENSION_contigs[i].at(j,&kmer);
+				kmer.write(&f);
 			}
 		}
 		f.close();

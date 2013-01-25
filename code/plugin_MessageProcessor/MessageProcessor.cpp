@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -665,7 +665,6 @@ void MessageProcessor::call_RAY_MPI_TAG_START_INDEXING_SEQUENCES(Message*message
 	if(m_parameters->writeCheckpoints() && !m_parameters->hasCheckpoint("GenomeGraph")){
 		/* announce the user that we are writing a checkpoint */
 		cout<<"Rank "<<m_parameters->getRank()<<" is writing checkpoint GenomeGraph"<<endl;
-		cout.flush();
 
 		ofstream f(m_parameters->getCheckpointFile("GenomeGraph").c_str());
 
@@ -760,7 +759,6 @@ void MessageProcessor::call_RAY_MPI_TAG_VERTICES_DATA(Message*message){
 		if((*m_last_value)!=(int)m_subgraph->size() && (int)m_subgraph->size()%100000==0){
 			(*m_last_value)=m_subgraph->size();
 			printf("Rank %i has %i vertices\n",m_rank,(int)m_subgraph->size());
-			fflush(stdout);
 
 			if(m_parameters->showMemoryUsage()){
 				showMemoryUsage(m_rank);
@@ -836,7 +834,6 @@ void MessageProcessor::call_RAY_MPI_TAG_PURGE_NULL_EDGES(Message*message){
 
 
 	printf("Rank %i has %i vertices (completed)\n",m_rank,(int)m_subgraph->size());
-	fflush(stdout);
 	
 	#if 0
 	m_subgraph->printStatistics();
@@ -844,7 +841,6 @@ void MessageProcessor::call_RAY_MPI_TAG_PURGE_NULL_EDGES(Message*message){
 
 	if(m_parameters->showMemoryUsage()){
 		showMemoryUsage(m_rank);
-		fflush(stdout);
 	}
 
 	*m_mode=RAY_SLAVE_MODE_PURGE_NULL_EDGES;
@@ -894,7 +890,7 @@ void MessageProcessor::call_RAY_MPI_TAG_START_VERTICES_DISTRIBUTION(Message*mess
 
 	// with 4 000 000 kmers, the ratio is objects/bits is 16.
 	// with 0.000574
-	m_bloomBits=__BLOOM_DEFAULT_BITS; 
+	m_bloomBits=m_verticesExtractor->getDefaultNumberOfBitsForBloomFilter();
 
 	if(m_parameters->hasConfigurationOption("-bloom-filter-bits",1))
 		m_bloomBits=m_parameters->getConfigurationInteger("-bloom-filter-bits",0);
@@ -1035,7 +1031,6 @@ void MessageProcessor::call_RAY_MPI_TAG_PREPARE_COVERAGE_DISTRIBUTION(Message*me
 
 	if(m_parameters->showMemoryUsage()){
 		showMemoryUsage(m_rank);
-		fflush(stdout);
 	}
 
 	(*m_mode_send_coverage_iterator)=0;
@@ -1708,7 +1703,6 @@ void MessageProcessor::call_RAY_MPI_TAG_ASK_VERTEX_PATHS_SIZE(Message*message){
 		Vertex*node=m_subgraph->find(&vertex);
 		if(node==NULL){
 			cout<<"Source="<<message->getSource()<<" Destination="<<m_rank<<" "<<vertex.idToWord(*m_wordSize,m_parameters->getColorSpaceMode())<<" does not exist, aborting"<<endl;
-			cout.flush();
 		}
 		assert(node!=NULL);
 
@@ -2123,9 +2117,12 @@ void MessageProcessor::call_RAY_MPI_TAG_CLEAR_DIRECTIONS(Message*message){
 			}
 
 			GraphPath rc;
+			rc.setKmerLength(m_parameters->getWordSize());
 			for(int j=(m_ed->m_EXTENSION_contigs)[i].size()-1;j>=0;j--){
 
-				Kmer kmer=m_ed->m_EXTENSION_contigs[i][j]->complementVertex(*m_wordSize,
+				Kmer otherKmer;
+				m_ed->m_EXTENSION_contigs[i].at(j,&otherKmer);
+				Kmer kmer=otherKmer.complementVertex(*m_wordSize,
 					m_parameters->getColorSpaceMode());
 				rc.push_back(&kmer);
 			}
@@ -2255,7 +2252,9 @@ void MessageProcessor::call_RAY_MPI_TAG_GET_PATH_VERTEX(Message*message){
 		assert(position<(int)(m_ed->m_EXTENSION_contigs)[m_fusionData->m_FUSION_identifier_map[id]].size());
 		#endif
 
-		Kmer*a=(m_ed->m_EXTENSION_contigs)[m_fusionData->m_FUSION_identifier_map[id]][position];
+		Kmer object;
+		m_ed->m_EXTENSION_contigs[m_fusionData->m_FUSION_identifier_map[id]].at(position,&object);
+		Kmer*a=&object;
 		int pos=i;
 		a->pack(messageBytes,&pos);
 	}
@@ -2297,8 +2296,10 @@ void MessageProcessor::call_RAY_MPI_TAG_AUTOMATIC_DISTANCE_DETECTION(Message*mes
 			f.write((char*)&length,sizeof(int));
 
 			for(int j=0;j<(int)m_seedingData->m_SEEDING_seeds[i].size();j++){
-				m_seedingData->m_SEEDING_seeds[i].at(j)->write(&f);
-				
+				Kmer theKmer;
+				m_seedingData->m_SEEDING_seeds[i].at(j,&theKmer);
+				theKmer.write(&f);
+
 				CoverageDepth coverageValue=0;
 				coverageValue=m_seedingData->m_SEEDING_seeds[i].getCoverageAt(j);
 				f.write((char*)&coverageValue,sizeof(CoverageDepth));
@@ -2462,7 +2463,9 @@ void MessageProcessor::call_RAY_MPI_TAG_GET_CONTIG_CHUNK(Message*message){
 
 	while(position<length
 	 && (outputPosition+KMER_U64_ARRAY_SIZE)<(int)(MAXIMUM_MESSAGE_SIZE_IN_BYTES/sizeof(MessageUnit))){
-		m_ed->m_EXTENSION_contigs[index][position++]->pack(messageContent,&outputPosition);
+		Kmer theKmerObject;
+		m_ed->m_EXTENSION_contigs[index].at(position++,&theKmerObject);
+		theKmerObject.pack(messageContent,&outputPosition);
 		count++;
 	}
 	messageContent[origin]=count;

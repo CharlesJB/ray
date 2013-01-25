@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -1117,6 +1117,12 @@ bool Parameters::getError(){
 void Parameters::addDistance(int library,int distance,int count){
 	m_observedDistances[library][distance]+=count;
 }
+string Parameters::getLibraryGlobalFile(){
+	ostringstream s;
+	s<<getPrefix();
+	s<<""<<"LibraryData"<<".xml";
+	return s.str();
+}
 
 string Parameters::getLibraryFile(int library){
 	ostringstream s;
@@ -1129,6 +1135,13 @@ string Parameters::getLibraryFile(int library){
 
 void Parameters::computeAverageDistances(){
 	cout<<endl;
+
+	#ifdef WRITE_LIBRARY_OBSERVATIONS
+	string globalFileName=getLibraryGlobalFile();
+	ofstream f(globalFileName.c_str());
+	f<<"<libraryData>"<<endl;
+	#endif
+
 	for(map<int,map<int,int> >::iterator i=m_observedDistances.begin();
 		i!=m_observedDistances.end();i++){
 		int library=i->first;
@@ -1138,16 +1151,14 @@ void Parameters::computeAverageDistances(){
 
 		vector<int> x;
 		vector<int> y;
-		string fileName=getLibraryFile(library);
 
 		#ifdef WRITE_LIBRARY_OBSERVATIONS
-		ofstream f(fileName.c_str());
+		f<<"<library><handle>"<<library<<"</handle>"<<endl;
+		f<<"<data>"<<endl;
 
 		f<<"# OuterDistanceInNucleotides	Frequency"<<endl;
 		f<<"# OuterDistanceInNucleotides includes the gap length and lengths of left and right reads"<<endl;
-
 		#endif
-
 
 		for(map<int,int>::iterator j=m_observedDistances[library].begin();
 			j!=m_observedDistances[library].end();j++){
@@ -1159,9 +1170,6 @@ void Parameters::computeAverageDistances(){
 			x.push_back(d);
 			y.push_back(count);
 		}
-		#ifdef WRITE_LIBRARY_OBSERVATIONS
-		f.close();
-		#endif
 
 		vector<int> averages;
 		vector<int> deviations;
@@ -1171,7 +1179,16 @@ void Parameters::computeAverageDistances(){
 		for(int i=0;i<(int)averages.size();i++)
 			addLibraryData(library,averages[i],deviations[i]);
 
+		#ifdef WRITE_LIBRARY_OBSERVATIONS
+		f<<"</data></library>"<<endl;
+		#endif
 	}	
+
+	#ifdef WRITE_LIBRARY_OBSERVATIONS
+	f<<"</libraryData>"<<endl;
+	f.close();
+	#endif
+
 	cout<<endl;
 	cout<<endl;
 
@@ -1462,7 +1479,7 @@ void Parameters::showUsage(){
 
 	ostringstream text;
 	showOption("-bloom-filter-bits bits","Sets the number of bits for the Bloom filter");
-	text<<"Default is "<<__BLOOM_DEFAULT_BITS<<" bits, 0 bits disables the Bloom filter.";
+	text<<"Default is "<<"auto"<<" bits (adaptive), 0 bits disables the Bloom filter.";
 	showOptionDescription(text.str());
 	cout<<endl;
 	
@@ -1666,6 +1683,7 @@ void Parameters::showUsage(){
 	cout<<"     .fastq"<<endl;
 	cout<<"     .fastq.gz (needs HAVE_LIBZ=y at compilation)"<<endl;
 	cout<<"     .fastq.bz2 (needs HAVE_LIBBZ2=y at compilation)"<<endl;
+	cout<<"     export.txt"<<endl;
 	cout<<"     .sff (paired reads must be extracted manually)"<<endl;
 	cout<<"     .csfasta (color-space reads)"<<endl;
 
@@ -1732,7 +1750,7 @@ void Parameters::showUsage(){
 	cout<<endl;
 	cout<<"     RayOutput/LibraryStatistics.txt"<<endl;
 	cout<<"     	Estimation of outer distances for paired reads"<<endl;
-	cout<<"     RayOutput/Library<LibraryNumber>.txt"<<endl;
+	cout<<"     RayOutput/LibraryData.xml"<<endl;
 	cout<<"         Frequencies for observed outer distances (insert size + read lengths)"<<endl;
 	cout<<endl;
 

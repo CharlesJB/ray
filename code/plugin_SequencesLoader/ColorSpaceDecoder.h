@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C)  2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C)  2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You have received a copy of the GNU General Public License
-    along with this program (gpl-3.0.txt).  
+    along with this program (gpl-3.0.txt).
 	see <http://www.gnu.org/licenses/>
 
 */

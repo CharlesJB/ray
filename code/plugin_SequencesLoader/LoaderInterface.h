@@ -1,5 +1,5 @@
 /*
-    Ray -- Parallel genome assemblies for parallel DNA sequencing
+ *  Ray -- Parallel genome assemblies for parallel DNA sequencing
     Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
@@ -19,38 +19,27 @@
 
 */
 
-#ifndef _FastqBz2Loader
-#define _FastqBz2Loader
+#ifndef _LoaderInterface_h
+#define _LoaderInterface_h
 
-#ifdef CONFIG_HAVE_LIBBZ2
-
-#include "LoaderInterface.h"
-#include "ArrayOfReads.h"
 #include "Read.h"
-#include "BzReader.h"
-
-#include <RayPlatform/memory/MyAllocator.h>
+#include "ArrayOfReads.h"
 
 #include <string>
-#include <vector>
 using namespace std;
 
 /**
+ * This is a interface for implementing new file formats.
+ *
  * \author Sébastien Boisvert
  */
-class FastqBz2Loader: public LoaderInterface{
-	int m_loaded;
-	int m_size;
-	BzReader m_reader;
+class LoaderInterface{
+
 public:
-	int openWithPeriod(string file,int period);
-	int open(string file);
-	int getSize();
-	void load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator);
-	void loadWithPeriod(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator,int period);
-	void close();
+	virtual int open(string file) = 0;
+	virtual int getSize() = 0;
+	virtual void load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator) = 0;
+	virtual void close() = 0;
 };
 
 #endif
-#endif
-

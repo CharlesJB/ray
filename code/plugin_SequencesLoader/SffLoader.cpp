@@ -14,7 +14,7 @@
     GNU General Public License for more details.
 
     You have received a copy of the GNU General Public License
-    along with this program (gpl-3.0.txt).  
+    along with this program (gpl-3.0.txt).
 	see <http://www.gnu.org/licenses/>
 
 */
@@ -232,4 +232,7 @@ void SffLoader::load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator
 
 int SffLoader::getSize(){
 	return m_size;
+}
+
+void SffLoader::close(){
 }

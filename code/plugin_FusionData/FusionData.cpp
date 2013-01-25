@@ -1,6 +1,6 @@
 /*
  	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -63,6 +63,7 @@ void FusionData::call_RAY_SLAVE_MODE_DISTRIBUTE_FUSIONS(){
 				f.read((char*)&name,sizeof(PathHandle));
 				f.read((char*)&vertices,sizeof(int));
 				GraphPath path;
+				path.setKmerLength(m_parameters->getWordSize());
 				for(int j=0;j<vertices;j++){
 					Kmer kmer;
 					kmer.read(&f);
@@ -91,7 +92,7 @@ void FusionData::call_RAY_SLAVE_MODE_DISTRIBUTE_FUSIONS(){
 
 	}else if(m_buffers.isEmpty() && m_seedingData->m_SEEDING_i==(LargeCount)m_ed->m_EXTENSION_contigs.size()){
 		printf("Rank %i is distributing fusions [%i/%i] (completed)\n",getRank(),(int)m_ed->m_EXTENSION_contigs.size(),(int)m_ed->m_EXTENSION_contigs.size());
-		fflush(stdout);
+
 		Message aMessage(NULL,0,MASTER_RANK,RAY_MPI_TAG_DISTRIBUTE_FUSIONS_FINISHED,getRank());
 		m_outbox->push_back(&aMessage);
 		(*m_mode)=RAY_SLAVE_MODE_DO_NOTHING;
@@ -112,7 +113,6 @@ void FusionData::call_RAY_SLAVE_MODE_DISTRIBUTE_FUSIONS(){
 	if(m_ed->m_EXTENSION_currentPosition==0){
 		if(m_seedingData->m_SEEDING_i%10==0){
 			printf("Rank %i is distributing fusions [%i/%i]\n",getRank(),(int)(m_seedingData->m_SEEDING_i+1),(int)m_ed->m_EXTENSION_contigs.size());
-			fflush(stdout);
 
 			if(m_parameters->showMemoryUsage()){
 				showMemoryUsage(getRank());
@@ -127,7 +127,9 @@ void FusionData::call_RAY_SLAVE_MODE_DISTRIBUTE_FUSIONS(){
 	assert(m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i].size() > 0);
 	#endif
 
-	Kmer vertex=*(m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i].at(m_ed->m_EXTENSION_currentPosition));
+	Kmer vertex;
+	m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i].at(m_ed->m_EXTENSION_currentPosition,&vertex);
+
 	int destination=m_parameters->_vertexRank(&vertex);
 
 	for(int i=0;i<KMER_U64_ARRAY_SIZE;i++){
@@ -215,7 +217,6 @@ bool FusionData::isReady(){
 void FusionData::finishFusions(){
 	if(m_seedingData->m_SEEDING_i==(LargeCount)m_ed->m_EXTENSION_contigs.size()){
 		printf("Rank %i is finishing fusions [%i/%i] (completed)\n",getRank(),(int)m_ed->m_EXTENSION_contigs.size(),(int)m_ed->m_EXTENSION_contigs.size());
-		fflush(stdout);
 
 		if(m_parameters->showMemoryUsage()){
 			showMemoryUsage(m_rank);
@@ -250,7 +251,6 @@ void FusionData::finishFusions(){
 	
 		if(m_seedingData->m_SEEDING_i%10==0){
 			printf("Rank %i is finishing fusions [%i/%i]\n",getRank(),(int)m_seedingData->m_SEEDING_i+1,(int)m_ed->m_EXTENSION_contigs.size());
-			fflush(stdout);
 	
 			if(m_parameters->showMemoryUsage()){
 				showMemoryUsage(getRank());
@@ -301,7 +301,9 @@ void FusionData::finishFusions(){
 			}else{
 				int position=m_ed->m_EXTENSION_currentPosition;
 				GraphPath*path=&(m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i]);
-				Kmer kmerObjectAtPosition=*(path->at(position));
+
+				Kmer kmerObjectAtPosition;
+				path->at(position,&kmerObjectAtPosition);
 
 				getPaths(kmerObjectAtPosition);
 			}
@@ -325,7 +327,6 @@ void FusionData::finishFusions(){
 
 				if(m_seedingData->m_SEEDING_i%10==0){
 					printf("Rank %i is finishing fusions [%i/%i]\n",getRank(),(int)m_seedingData->m_SEEDING_i+1,(int)m_ed->m_EXTENSION_contigs.size());
-					fflush(stdout);
 	
 					if(m_parameters->showMemoryUsage()){
 						showMemoryUsage(getRank());
@@ -333,6 +334,8 @@ void FusionData::finishFusions(){
 					}
 				}
 				GraphPath aPath;
+				aPath.setKmerLength(m_parameters->getWordSize());
+
 				m_FINISH_newFusions.push_back(aPath);
 
 // TODO: GraphPath provides a way to store coverage too !
@@ -345,7 +348,8 @@ void FusionData::finishFusions(){
 			}
 
 			int position=m_ed->m_EXTENSION_currentPosition;
-			Kmer vertex=*(m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i].at(position));
+			Kmer vertex;
+			m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i].at(position,&vertex);
 
 			m_FINISH_newFusions[m_FINISH_newFusions.size()-1].push_back(&vertex);
 
@@ -456,7 +460,8 @@ void FusionData::finishFusions(){
 
 				int position=m_ed->m_EXTENSION_currentPosition;
 				GraphPath*path=&(m_ed->m_EXTENSION_contigs[m_seedingData->m_SEEDING_i]);
-				Kmer kmerObject=*(path->at(position));
+				Kmer kmerObject;
+				path->at(position,&kmerObject);
 
 				getPaths(kmerObject);
 			}else{

@@ -19,38 +19,41 @@
 
 */
 
-#ifndef _FastqBz2Loader
-#define _FastqBz2Loader
-
-#ifdef CONFIG_HAVE_LIBBZ2
+#ifndef _ExportLoader
+#define _ExportLoader
 
 #include "LoaderInterface.h"
 #include "ArrayOfReads.h"
 #include "Read.h"
-#include "BzReader.h"
 
 #include <RayPlatform/memory/MyAllocator.h>
 
-#include <string>
+#include <fstream>
 #include <vector>
+#include <sstream>
+#include <stdio.h>
+#include <string>
 using namespace std;
 
 /**
+ *
+ * A loader for export files.
+ *
+ * This gene was created by a gene duplication of FastqLoader.h.
+ *
  * \author Sébastien Boisvert
  */
-class FastqBz2Loader: public LoaderInterface{
+class ExportLoader: public LoaderInterface{
+
 	int m_loaded;
 	int m_size;
-	BzReader m_reader;
+	FILE*m_f;
 public:
-	int openWithPeriod(string file,int period);
 	int open(string file);
 	int getSize();
 	void load(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator);
-	void loadWithPeriod(int maxToLoad,ArrayOfReads*reads,MyAllocator*seqMyAllocator,int period);
 	void close();
 };
 
-#endif
 #endif
 

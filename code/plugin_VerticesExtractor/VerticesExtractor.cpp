@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -70,7 +70,7 @@ void VerticesExtractor::call_RAY_SLAVE_MODE_ADD_EDGES(){
 		return;
 	}
 
-	if(m_mode_send_vertices_sequence_id%10000==0 &&m_mode_send_vertices_sequence_id_position==0
+	if(m_mode_send_vertices_sequence_id%100000==0 &&m_mode_send_vertices_sequence_id_position==0
 		&&m_mode_send_vertices_sequence_id<(int)m_myReads->size()){
 
 		string reverse="";
@@ -78,7 +78,6 @@ void VerticesExtractor::call_RAY_SLAVE_MODE_ADD_EDGES(){
 			reverse="(reverse complement) ";
 		}
 		printf("Rank %i is adding edges %s[%i/%i]\n",m_parameters->getRank(),reverse.c_str(),(int)m_mode_send_vertices_sequence_id+1,(int)m_myReads->size());
-		fflush(stdout);
 
 		m_derivative.addX(m_mode_send_vertices_sequence_id);
 		m_derivative.printStatus(SLAVE_MODES[RAY_SLAVE_MODE_ADD_EDGES],RAY_SLAVE_MODE_ADD_EDGES);
@@ -102,7 +101,6 @@ void VerticesExtractor::call_RAY_SLAVE_MODE_ADD_EDGES(){
 			m_outbox->push_back(&aMessage);
 			m_finished=true;
 			printf("Rank %i is adding edges [%i/%i] (completed)\n",m_parameters->getRank(),(int)m_mode_send_vertices_sequence_id,(int)m_myReads->size());
-			fflush(stdout);
 			m_bufferedDataForIngoingEdges.showStatistics(m_parameters->getRank());
 			m_bufferedDataForOutgoingEdges.showStatistics(m_parameters->getRank());
 
@@ -273,6 +271,19 @@ void VerticesExtractor::call_RAY_SLAVE_MODE_ADD_EDGES(){
 		}
 	}
 	MACRO_COLLECT_PROFILING_INFORMATION();
+}
+
+int VerticesExtractor::getDefaultNumberOfBitsForBloomFilter(){
+
+/*
+ * This is the product of these values:
+ *
+ * * Number of sequences on the rank;
+ * * K-mer length;
+ * * Number of strands (2);
+ * * Number of directions in one dimension (2);
+ */
+	return m_myReads->size() * m_parameters->getWordSize() * 2 * 2;
 }
 
 void VerticesExtractor::constructor(int size,Parameters*parameters,GridTable*graph,

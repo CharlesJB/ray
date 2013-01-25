@@ -1,6 +1,6 @@
 /*
  	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -64,7 +64,8 @@ void JoinerWorker::work(){
 			assert(m_position < (int)m_path->size());
 			#endif
 
-			Kmer kmer=*(m_path->at(m_position));
+			Kmer kmer;
+			m_path->at(m_position,&kmer);
 
 			if(m_reverseStrand)
 				kmer=kmer.complementVertex(m_parameters->getWordSize(),m_parameters->getColorSpaceMode());
@@ -117,7 +118,8 @@ void JoinerWorker::work(){
 		}else if(m_receivedNumberOfPaths && m_pathIndex < m_numberOfPaths){
 			/* request a path */
 			if(!m_requestedPath){
-				Kmer kmer=*(m_path->at(m_position));
+				Kmer kmer;
+				m_path->at(m_position,&kmer);
 
 				if(m_reverseStrand){
 					kmer=kmer.complementVertex(m_parameters->getWordSize(),m_parameters->getColorSpaceMode());
@@ -225,6 +227,7 @@ void JoinerWorker::work(){
 
 				PathHandle hitName=m_hitNames[m_hitIterator];
 				int length=response[0];
+
 				if(m_parameters->hasOption("-debug-fusions2")){
 					cout<<"received length, value= "<<length<<endl;
 				}
@@ -309,7 +312,12 @@ void JoinerWorker::work(){
 				if(localScore > bestSelfScore){
 			
 					if(localScore >= relevantScore){
-						cout<<"New best score for self (handle: "<<m_identifier<<", length: "<<m_path->size()<<") with "<<localScore<<", other handle: "<<otherIdentifier<<endl;
+
+						if(m_parameters->hasOption("-debug-fusions")){
+							cout<<"New best score for self (handle: ";
+							cout<<m_identifier<<", length: "<<m_path->size()<<") with ";
+							cout<<localScore<<", other handle: "<<otherIdentifier<<endl;
+						}
 					}
 
 					m_minPositionOnSelf[otherIdentifier]=start;
@@ -352,7 +360,11 @@ void JoinerWorker::work(){
 				if(localScore > bestOtherScore){
 			
 					if(localScore >= relevantScore){
-						cout<<"New best score for other (handle: "<<otherIdentifier<<", length: "<<m_hitLengths[otherIdentifier]<<") with "<<localScore<<", other handle: "<<otherIdentifier<<endl;
+						if(m_parameters->hasOption("-debug-fusions")){
+							cout<<"New best score for other (handle: "<<otherIdentifier;
+							cout<<", length: "<<m_hitLengths[otherIdentifier]<<") with ";
+							cout<<localScore<<", other handle: "<<otherIdentifier<<endl;
+						}
 					}
 
 					m_minPosition[otherIdentifier]=start;
@@ -524,7 +536,8 @@ Also, don't do it if the matching ratios are below 10%.
 			// do nothing with this.
 			m_isDone=true;
 
-			cout<<"Notice: number of hits is not 1: "<<numberOfHits<<" fetched hits."<<endl;
+			if(m_parameters->hasOption("-debug-fusions"))
+				cout<<"Notice: number of hits is not 1: "<<numberOfHits<<" fetched hits."<<endl;
 		}
 
 	/* gather all the vertices of the hit and try to join them */
@@ -613,9 +626,12 @@ Also, don't do it if the matching ratios are below 10%.
  * 				---------------->
  * 				*/
 			if(selfSide==RIGHT_SIDE && otherSide == LEFT_SIDE){
-				cout<<"VALID"<<endl;
+
+				if(m_parameters->hasOption("-debug-fusions"))
+					cout<<"VALID"<<endl;
 				
 				GraphPath newPath;
+				newPath.setKmerLength(m_parameters->getWordSize());
 
 				/* we take directly the path */
 				if(!m_reverseStrand){
@@ -623,9 +639,13 @@ Also, don't do it if the matching ratios are below 10%.
 				}else{
 					/* we need the reverse complement path */
 					GraphPath rc;
+					rc.setKmerLength(m_parameters->getWordSize());
+
 					for(int j=(*m_path).size()-1;j>=0;j--){
 	
-						Kmer newKmer=(*m_path).at(j)->complementVertex(m_parameters->getWordSize(),
+						Kmer theKmer;
+						(*m_path).at(j,&theKmer);
+						Kmer newKmer=theKmer.complementVertex(m_parameters->getWordSize(),
 							m_parameters->getColorSpaceMode());
 
 						rc.push_back(&newKmer);
@@ -635,28 +655,36 @@ Also, don't do it if the matching ratios are below 10%.
 
 				/* other path is always forward strand */
 				for(int i=m_maxPosition[hitName]+1;i<(int)hitLength;i++){
-					Kmer otherKmer=*(m_hitVertices.at(i));
+					Kmer otherKmer;
+					m_hitVertices.at(i,&otherKmer);
 					newPath.push_back(&otherKmer);
 				}
 
 				m_newPaths->push_back(newPath);
 
-				cout<<"Created new path, length= "<<newPath.size()<<endl;
-				
-				cout<<"Received hit path data."<<endl;
-				cout<<"Matches: "<<matches<<endl;
-				cout<<"Self"<<endl;
-				cout<<" Identifier: "<<m_identifier<<endl;
-				cout<<" Strand: "<<m_reverseStrand<<endl;
-				cout<<" Length: "<<m_path->size()<<endl;
-				cout<<" Begin: "<<m_minPositionOnSelf[hitName]<<endl;
-				cout<<" End: "<<m_maxPositionOnSelf[hitName]<<endl;
-				cout<<"Hit"<<endl;
-				cout<<" Identifier: "<<hitName<<endl;
-				cout<<" Strand: 0"<<endl;
-				cout<<" Length: "<<hitLength<<endl;
-				cout<<" Begin: "<<m_minPosition[hitName]<<endl;
-				cout<<" End: "<<m_maxPosition[hitName]<<endl;
+				if(m_parameters->hasOption("-debug-fusions")){
+					cout<<"Created new path, length= "<<newPath.size()<<endl;
+				}
+
+				if(m_parameters->hasOption("-debug-fusions")){
+					cout<<"Received hit path data."<<endl;
+				}
+
+				if(m_parameters->hasOption("-debug-fusions")){
+					cout<<"Matches: "<<matches<<endl;
+					cout<<"Self"<<endl;
+					cout<<" Identifier: "<<m_identifier<<endl;
+					cout<<" Strand: "<<m_reverseStrand<<endl;
+					cout<<" Length: "<<m_path->size()<<endl;
+					cout<<" Begin: "<<m_minPositionOnSelf[hitName]<<endl;
+					cout<<" End: "<<m_maxPositionOnSelf[hitName]<<endl;
+					cout<<"Hit"<<endl;
+					cout<<" Identifier: "<<hitName<<endl;
+					cout<<" Strand: 0"<<endl;
+					cout<<" Length: "<<hitLength<<endl;
+					cout<<" Begin: "<<m_minPosition[hitName]<<endl;
+					cout<<" End: "<<m_maxPosition[hitName]<<endl;
+				}
 
 
 				m_eliminated=true;
@@ -666,56 +694,68 @@ Also, don't do it if the matching ratios are below 10%.
  *             ------------>
  *             */
 			}else if(selfSide==LEFT_SIDE && otherSide == RIGHT_SIDE){
-				cout<<"VALID"<<endl;
+
+				if(m_parameters->hasOption("-debug-fusions"))
+					cout<<"VALID"<<endl;
 
 				/* other path is always forward strand */
 				GraphPath newPath=m_hitVertices;
+				newPath.setKmerLength(m_parameters->getWordSize());
 
 				/* we push the forward path */
 				if(!m_reverseStrand){
 					for(int i=m_maxPositionOnSelf[hitName]+1;i<(int)m_path->size();i++){
-						newPath.push_back(m_path->at(i));
+						Kmer aKmer;
+						m_path->at(i,&aKmer);
+						newPath.push_back(&aKmer);
 					}
 
 				/* we push the reverse path */
 				}else{
 					GraphPath rc;
+					rc.setKmerLength(m_parameters->getWordSize());
 					for(int j=(*m_path).size()-1;j>=0;j--){
 
-						Kmer aKmer=(*m_path).at(j)->complementVertex(m_parameters->getWordSize(),
+						Kmer otherKmer;
+						(*m_path).at(j,&otherKmer);
+						Kmer aKmer=otherKmer.complementVertex(m_parameters->getWordSize(),
 							m_parameters->getColorSpaceMode());
 						rc.push_back(&aKmer);
 					}
 
 					for(int i=m_maxPositionOnSelf[hitName]+1;i<(int)m_path->size();i++){
-						newPath.push_back(rc.at(i));
+						Kmer otherKmer;
+						rc.at(i,&otherKmer);
+						newPath.push_back(&otherKmer);
 					}
 
 				}
 				m_newPaths->push_back(newPath);
 
-				cout<<"Created new path, length= "<<newPath.size()<<endl;
+				if(m_parameters->hasOption("-debug-fusions")){
+					cout<<"Created new path, length= "<<newPath.size()<<endl;
 
-				cout<<"Received hit path data."<<endl;
-				cout<<"Matches: "<<matches<<endl;
-				cout<<"Self"<<endl;
-				cout<<" Identifier: "<<m_identifier<<endl;
-				cout<<" Strand: "<<m_reverseStrand<<endl;
-				cout<<" Length: "<<m_path->size()<<endl;
-				cout<<" Begin: "<<m_minPositionOnSelf[hitName]<<endl;
-				cout<<" End: "<<m_maxPositionOnSelf[hitName]<<endl;
-				cout<<"Hit"<<endl;
-				cout<<" Identifier: "<<hitName<<endl;
-				cout<<" Strand: 0"<<endl;
-				cout<<" Length: "<<hitLength<<endl;
-				cout<<" Begin: "<<m_minPosition[hitName]<<endl;
-				cout<<" End: "<<m_maxPosition[hitName]<<endl;
-
+					cout<<"Received hit path data."<<endl;
+					cout<<"Matches: "<<matches<<endl;
+					cout<<"Self"<<endl;
+					cout<<" Identifier: "<<m_identifier<<endl;
+					cout<<" Strand: "<<m_reverseStrand<<endl;
+					cout<<" Length: "<<m_path->size()<<endl;
+					cout<<" Begin: "<<m_minPositionOnSelf[hitName]<<endl;
+					cout<<" End: "<<m_maxPositionOnSelf[hitName]<<endl;
+					cout<<"Hit"<<endl;
+					cout<<" Identifier: "<<hitName<<endl;
+					cout<<" Strand: 0"<<endl;
+					cout<<" Length: "<<hitLength<<endl;
+					cout<<" Begin: "<<m_minPosition[hitName]<<endl;
+					cout<<" End: "<<m_maxPosition[hitName]<<endl;
+				}
 
 				m_eliminated=true;
 
 			}else{
-				cout<<"INVALID"<<endl;
+				if(m_parameters->hasOption("-debug-fusions"))
+					cout<<"INVALID"<<endl;
 			}
 
 			m_isDone=true;
@@ -762,6 +802,8 @@ vector<GraphPath>*newPaths,
 		cout<<"Spawned worker number "<<number<<endl;
 		cout<<" path "<<m_identifier<<" reverse "<<m_reverseStrand<<" length "<<m_path->size()<<endl;
 	}
+
+	m_hitVertices.setKmerLength(m_parameters->getWordSize());
 }
 
 bool JoinerWorker::isPathEliminated(){

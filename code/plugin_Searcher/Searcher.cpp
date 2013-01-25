@@ -894,7 +894,9 @@ void Searcher::call_RAY_SLAVE_MODE_CONTIG_BIOLOGICAL_ABUNDANCES(){
 				// anyway the code path for getColorSpaceMode=true is not tested very well
 				bool coloredMode=m_parameters->getColorSpaceMode();
 
-				Kmer*kmer=(*m_contigs)[m_contig].at(i);
+				Kmer kmer2;
+				(*m_contigs)[m_contig].at(i,&kmer2);
+				Kmer*kmer=&kmer2;
 				double gcRatio=kmer->getGuanineCytosineProportion(kmerLength,coloredMode);
 
 				#ifdef ASSERT
@@ -1053,7 +1055,9 @@ void Searcher::call_RAY_SLAVE_MODE_CONTIG_BIOLOGICAL_ABUNDANCES(){
 			#endif
 
 			// get the kmer
-			Kmer*kmer=(*m_contigs)[m_contig].at(m_contigPosition);
+			Kmer kmer2;
+			(*m_contigs)[m_contig].at(m_contigPosition,&kmer2);
+			Kmer*kmer=&kmer2;
 
 			int rankToFlush=m_parameters->_vertexRank(kmer);
 
@@ -1931,7 +1935,6 @@ void Searcher::call_RAY_SLAVE_MODE_SEQUENCE_BIOLOGICAL_ABUNDANCES(){
 					#endif
 		
 					//cout<<"contig-"<<contig<<" has "<<matches<<" matches on strand 'F'"<<endl;
-					//cout.flush();
 				}
 		
 				for(map<PathHandle,set<int> >::iterator i=m_contigCounts['R'].begin();i!=m_contigCounts['R'].end();i++){
@@ -1947,7 +1950,6 @@ void Searcher::call_RAY_SLAVE_MODE_SEQUENCE_BIOLOGICAL_ABUNDANCES(){
 					#endif
 		
 					//cout<<"contig-"<<contig<<" has "<<matches<<" matches on strand 'R'"<<endl;
-					//cout.flush();
 				}
 		
 				// send a message to write the abundances
@@ -2368,7 +2370,7 @@ void Searcher::call_RAY_SLAVE_MODE_SEQUENCE_BIOLOGICAL_ABUNDANCES(){
 				if(m_numberOfKmers%1000==0)
 					cout<<"Received coverage position = "<<m_numberOfKmers<<" val= "<<coverage<<endl;
 				#endif
-			
+
 				if(false && m_numberOfKmers%10000==0 && m_numberOfKmers > 0){
 					cout<<"Rank "<<m_parameters->getRank()<<" processing sequence "<<m_globalSequenceIterator;
 					cout<<" ProcessedKmers= "<<m_numberOfKmers<<endl;
@@ -2385,7 +2387,7 @@ void Searcher::call_RAY_SLAVE_MODE_SEQUENCE_BIOLOGICAL_ABUNDANCES(){
 
 			}else{
 				m_requestedCoverage=false;
-		
+
 				// clear observed contigs for future sequence positions
 				m_observedPaths.clear();
 			}
