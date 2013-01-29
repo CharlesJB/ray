@@ -1,5 +1,5 @@
 /*
- 	Ray
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
     Copyright (C) 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
@@ -80,6 +80,16 @@
 #define RAY_NUCLEOTIDE_C 1 /* ~01 == 10 */
 #define RAY_NUCLEOTIDE_G 2 /* ~10 == 01 */
 #define RAY_NUCLEOTIDE_T 3 /* ~11 == 00 */
+
+#define SYMBOL_A 'A'
+#define SYMBOL_T 'T'
+#define SYMBOL_G 'G'
+#define SYMBOL_C 'C'
+
+#define SYMBOL_LOWER_A 'a'
+#define SYMBOL_LOWER_T 't'
+#define SYMBOL_LOWER_G 'g'
+#define SYMBOL_LOWER_C 'c'
 
 #define DOUBLE_ENCODING_A_COLOR '0'
 #define DOUBLE_ENCODING_C_COLOR '1'
@@ -186,7 +196,7 @@ typedef uint16_t LibraryHandle;
  * CONFIG_PATH_STORAGE_DEFAULT uses arrays of vertices, which consumes memory a lot.
  * CONFIG_PATH_STORAGE_BLOCK uses a block approach for vertices.
  */
-//#define CONFIG_PATH_STORAGE_BLOCK
-#define CONFIG_PATH_STORAGE_DEFAULT
+#define CONFIG_PATH_STORAGE_BLOCK
+//#define CONFIG_PATH_STORAGE_DEFAULT
 
 #endif

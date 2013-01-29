@@ -1,5 +1,5 @@
 /*
- 	Ray
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
     Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
@@ -32,11 +32,13 @@ using namespace std;
 #include <string.h>
 
 //#define CONFIG_PATH_VERBOSITY
+//#define CHECK_BUG_142
 
 GraphPath::GraphPath(){
 	m_hasPeakCoverage=false;
 
 	m_kmerLength=0;
+	m_errorRaised=false;
 
 #ifdef CONFIG_PATH_STORAGE_BLOCK
 	m_size=0;
@@ -53,7 +55,7 @@ int GraphPath::size()const{
 
 }
 
-void GraphPath::at(int i,Kmer*value){
+void GraphPath::at(int i,Kmer*value)const{
 
 #ifdef CONFIG_PATH_STORAGE_DEFAULT
 	(*value)=m_vertices.at(i);
@@ -63,7 +65,7 @@ void GraphPath::at(int i,Kmer*value){
 #endif
 }
 
-CoverageDepth GraphPath::getCoverageAt(int position){
+CoverageDepth GraphPath::getCoverageAt(int position)const{
 
 	if(m_coverageValues.size()==0)
 		return 0;
@@ -71,7 +73,45 @@ CoverageDepth GraphPath::getCoverageAt(int position){
 	return m_coverageValues[position];
 }
 
-void GraphPath::push_back(Kmer*a){
+bool GraphPath::canBeAdded(const Kmer*object)const{
+
+	if(size()==0)
+		return true;
+
+	Kmer lastKmer;
+	int position=size()-1;
+	at(position,&lastKmer);
+
+	return lastKmer.canHaveChild(object,m_kmerLength);
+}
+
+void GraphPath::push_back(const Kmer*a){
+
+#ifdef ASSERT
+	assert(m_kmerLength!=0);
+#endif
+
+	if(!canBeAdded(a)){
+		if(!m_errorRaised){
+			cout<<"Error: can not add "<<a->idToWord(m_kmerLength,false)<<endl;
+			cout<<"last objects:"<<endl;
+			int count=16;
+			int iterator=size()-count;
+			while(iterator<size()){
+				Kmer theObject;
+				at(iterator,&theObject);
+
+				cout<<" ["<<iterator<<"] ------> "<<theObject.idToWord(m_kmerLength,false)<<endl;
+
+				iterator++;
+			}
+
+			m_errorRaised=true;
+		}
+
+		return;
+	}
+
 #ifdef CONFIG_PATH_STORAGE_DEFAULT
 	m_vertices.push_back(*a);
 #elif defined(CONFIG_PATH_STORAGE_BLOCK)
@@ -80,7 +120,7 @@ void GraphPath::push_back(Kmer*a){
 #endif
 }
 
-void GraphPath::getVertices(vector<Kmer>*vertices){
+void GraphPath::getVertices(vector<Kmer>*vertices)const{
 	for(int i=0;i<size();i++){
 		Kmer kmer;
 		at(i,&kmer);
@@ -94,6 +134,7 @@ void GraphPath::clear(){
 #elif defined(CONFIG_PATH_STORAGE_BLOCK)
 	m_blocks.clear();
 	m_size=0;
+	m_kmerLength=0;
 #endif
 }
 
@@ -126,7 +167,7 @@ void GraphPath::computePeakCoverage(){
 	m_hasPeakCoverage=true;
 }
 
-CoverageDepth GraphPath::getPeakCoverage(){
+CoverageDepth GraphPath::getPeakCoverage()const{
 
 	#ifdef ASSERT
 	assert(m_hasPeakCoverage == true);
@@ -310,119 +351,113 @@ void GraphPath::setKmerLength(int kmerLength){
 
 #ifdef CONFIG_PATH_STORAGE_BLOCK
 
-void GraphPath::writeObjectInBlock(Kmer*a){
+void GraphPath::writeObjectInBlock(const Kmer*a){
 
 	#ifdef ASSERT
 	assert(m_kmerLength!=0);
 	#endif
 
+#ifdef CHECK_BUG_142
+	string copyA="AGGAAGAACCTGCTGAGGAACAAGAAGGTCAACTGCCTGGACTGTAATACC";
+	string copyB=a->idToWord(m_kmerLength,false);
+	if(copyA==copyB)
+		cout<<"[GraphPath::writeObjectInBlock] returns "<<copyB<<endl;
+#endif
+
 	if(m_size==0){
-		GraphPathBlock block;
-		m_blocks.push_back(block);
+		#ifdef ASSERT
+		assert(m_blocks.size()==0);
+		#endif
+
+		addBlock();
 		string sequence=a->idToWord(m_kmerLength,false);
-		int blockNumber=0;
-		int blockPosition=0;
-		memcpy(m_blocks[blockNumber].m_content+blockPosition,sequence.c_str(),m_kmerLength);
+
+		for(int blockPosition=0;blockPosition<m_kmerLength;blockPosition++){
+			writeSymbolInBlock(blockPosition,sequence[blockPosition]);
+		}
 	}else{
 		#ifdef ASSERT
 		assert(m_size>=1);
+		assert(a!=NULL);
+		assert(m_kmerLength!=0);
 		#endif
 
 		char lastSymbol=a->getLastSymbol(m_kmerLength,false);
-		int usedSymbols=m_size+m_kmerLength-1;
+		int usedSymbols=size()+m_kmerLength-1;
 
 		#ifdef ASSERT
 		assert(usedSymbols>=m_kmerLength);
+		assert(m_blocks.size()>=1);
 		#endif
 
-		int allocatedSymbols=m_blocks.size()*CONFIG_PATH_BLOCK_SIZE;
+		int allocatedSymbols=m_blocks.size()*getBlockSize();
 
 		#ifdef ASSERT
-		assert(allocatedSymbols>=CONFIG_PATH_BLOCK_SIZE);
+		assert(allocatedSymbols>=getBlockSize());
 		#endif
 
 		if(usedSymbols+1>allocatedSymbols){
-			GraphPathBlock block;
-			m_blocks.push_back(block);
-			allocatedSymbols=m_blocks.size()*CONFIG_PATH_BLOCK_SIZE;
+			addBlock();
+			allocatedSymbols=m_blocks.size()*getBlockSize();
 		}
 
 		#ifdef ASSERT
 		assert(usedSymbols+1<=allocatedSymbols);
-		assert(allocatedSymbols>=CONFIG_PATH_BLOCK_SIZE);
+		assert(allocatedSymbols>=getBlockSize());
 		#endif
 
 		int position=usedSymbols;
-		int blockNumber=position/CONFIG_PATH_BLOCK_SIZE;
-		int positionInBlock=position%CONFIG_PATH_BLOCK_SIZE;
 
 		#ifdef ASSERT
-		assert(blockNumber<(int)m_blocks.size());
-		assert(positionInBlock<CONFIG_PATH_BLOCK_SIZE);
+		assert(position<allocatedSymbols);
 		#endif
 
-		m_blocks[blockNumber].m_content[positionInBlock]=lastSymbol;
+		writeSymbolInBlock(position,lastSymbol);
 	}
 
 	m_size++;
+
+#ifdef ASSERT
+	Kmer addedObject;
+	at(size()-1,&addedObject);
+
+	if((*a)!=addedObject){
+		cout<<"Error: expected: "<<a->idToWord(m_kmerLength,false)<<endl;
+		cout<<"actual: "<<addedObject.idToWord(m_kmerLength,false)<<" at position "<<size()-1<<endl;
+		cout<<"kmerLength: "<<m_kmerLength<<" blockSize: "<<getBlockSize()<<endl;
+		int i=size()-1;
+		int j=0;
+		cout<<"dump:"<<endl;
+		while(i-j>=0 && j<10){
+			Kmer theObject;
+			at(i-j,&theObject);
+
+			cout<<" ["<<i-j<<"] ------> "<<theObject.idToWord(m_kmerLength,false)<<endl;
+
+			j++;
+		}
+	}
+
+	assert((*a)==addedObject);
+#endif
 }
 
-void GraphPath::readObjectInBlock(int position,Kmer*object){
+int GraphPath::getBlockSize()const{
+	return CONFIG_PATH_BLOCK_SIZE;
+}
+
+void GraphPath::readObjectInBlock(int position,Kmer*object)const{
+
 	#ifdef ASSERT
 	assert(position<size());
+	assert(position>=0);
 	assert(m_kmerLength!=0);
-	#endif
-
-	int blockNumber=position/CONFIG_PATH_BLOCK_SIZE;
-	int positionInBlock=position%CONFIG_PATH_BLOCK_SIZE;
-
-	#ifdef ASSERT
-	assert(blockNumber<(int)m_blocks.size());
-	assert(positionInBlock<CONFIG_PATH_BLOCK_SIZE);
 	#endif
 
 	char kmer[CONFIG_MAXKMERLENGTH+1];
 
-	int lastPosition=position+m_kmerLength-1;
-
-	int blockNumberForLastPosition=lastPosition/CONFIG_PATH_BLOCK_SIZE;
-#if 0
-	int positionInBlockForLastPosition=lastPosition%CONFIG_PATH_BLOCK_SIZE;
-#endif
-
-	if(blockNumber==blockNumberForLastPosition){
-		char*block=m_blocks[blockNumber].m_content;
-		int count=m_kmerLength;
-		memcpy(kmer,block+positionInBlock,count);
-
-#ifdef CONFIG_PATH_VERBOSITY
-		cout<<"[Case1] [1/1] Copying "<<count<<" from block coordinate ("<<blockNumber<<","<<positionInBlock<<")"<<endl;
-#endif
-
-	}else{
-
-		#ifdef ASSERT
-		assert(blockNumber+1==blockNumberForLastPosition);
-		assert(blockNumber+1<(int)m_blocks.size());
-		#endif
-
-		char*block=m_blocks[blockNumber].m_content;
-		int count=(CONFIG_PATH_BLOCK_SIZE-1)-positionInBlock+1;
-		memcpy(kmer,block+positionInBlock,count);
-
-#ifdef CONFIG_PATH_VERBOSITY
-		cout<<"[Case2] [1/2] Copying "<<count<<" from block coordinate ("<<blockNumber<<","<<positionInBlock<<")"<<endl;
-#endif
-
-		int blockNumber2=blockNumber+1;
-		char*block2=m_blocks[blockNumber2].m_content;
-		int count2=m_kmerLength-count;
-		int positionInBlock2=0x00000;
-		memcpy(kmer+count,block2+positionInBlock2,count2);
-
-#ifdef CONFIG_PATH_VERBOSITY
-		cout<<"[Case2] [2/2] Copying "<<count2<<" from block coordinate ("<<blockNumber2<<","<<positionInBlock2<<")"<<endl;
-#endif
+	for(int i=0;i<m_kmerLength;i++){
+		kmer[i]=readSymbolInBlock(position+i);
 	}
 
 	kmer[m_kmerLength]='\0';
@@ -432,6 +467,92 @@ void GraphPath::readObjectInBlock(int position,Kmer*object){
 #endif
 
 	(*object)=wordId(kmer);
+}
+
+char GraphPath::readSymbolInBlock(int position)const{
+
+	int globalPosition=position*BITS_PER_NUCLEOTIDE;
+	int numberOfBitsPerBlock=CONFIG_PATH_BLOCK_SIZE*BITS_PER_NUCLEOTIDE;
+
+/*
+ * Example:
+ *
+ * CONFIG_PATH_BLOCK_SIZE: 4096
+ * blocks: 3
+ * availableSymbols: 12288
+ * total bits: 24576
+ * bits per block: 8192
+ *
+ * position: 9999
+ * bit position: 19998
+ * block for the bit: 19998/8192 = 2
+ * uint64_t in block for the bit: 19998%8192/64 = 3614/64 = 56
+ * bit in uint64_t in block: 19998%8192%64 = (19998%8192)%64 = 30
+ *
+ * The address of position 9999 is (2,56,30).
+ */
+
+/* a block contains an array of uint64_t */
+	int blockNumber=globalPosition/numberOfBitsPerBlock;
+
+/* this is the index of the uint64_t in the block */
+	int positionInBlock=(globalPosition%numberOfBitsPerBlock)/(sizeof(uint64_t)*BITS_PER_BYTE);
+	int bitPosition=(globalPosition%numberOfBitsPerBlock)%(sizeof(uint64_t)*BITS_PER_BYTE);
+
+	uint64_t oldChunkValue=m_blocks[blockNumber].m_content[positionInBlock];
+
+	oldChunkValue<<=(sizeof(uint64_t)*BITS_PER_BYTE-BITS_PER_NUCLEOTIDE-bitPosition);
+	oldChunkValue>>=(sizeof(uint64_t)*BITS_PER_BYTE-BITS_PER_NUCLEOTIDE);
+
+	uint8_t code=oldChunkValue;
+
+#ifdef ASSERT
+	assert(code==RAY_NUCLEOTIDE_A||code==RAY_NUCLEOTIDE_T||code==RAY_NUCLEOTIDE_C||code==RAY_NUCLEOTIDE_G);
+#endif
+
+	char symbol=codeToChar(code,false);
+
+	return symbol;
+}
+
+void GraphPath::writeSymbolInBlock(int position,char symbol){
+
+	int globalPosition=position*BITS_PER_NUCLEOTIDE;
+	int numberOfBitsPerBlock=CONFIG_PATH_BLOCK_SIZE*BITS_PER_NUCLEOTIDE;
+
+/* a block contains an array of uint64_t */
+	int blockNumber=globalPosition/numberOfBitsPerBlock;
+
+/* this is the index of the uint64_t in the block */
+	int positionInBlock=(globalPosition%numberOfBitsPerBlock)/(sizeof(uint64_t)*BITS_PER_BYTE);
+	int bitPosition=(globalPosition%numberOfBitsPerBlock)%(sizeof(uint64_t)*BITS_PER_BYTE);
+
+	uint64_t oldChunkValue=m_blocks[blockNumber].m_content[positionInBlock];
+
+	uint64_t mask=charToCode(symbol);
+	mask<<=bitPosition;
+
+	oldChunkValue|=mask;
+
+	m_blocks[blockNumber].m_content[positionInBlock]=oldChunkValue;
+
+#ifdef ASSERT
+	if(readSymbolInBlock(position)!=symbol){
+		cout<<"Expected "<<symbol<<" Actual "<<readSymbolInBlock(position)<<endl;
+	}
+
+	assert(readSymbolInBlock(position)==symbol);
+#endif
+}
+
+void GraphPath::addBlock(){
+
+	GraphPathBlock block;
+	m_blocks.push_back(block);
+
+	for(int i=0;i<(int)NUMBER_OF_64_BIT_INTEGERS;i++){
+		m_blocks[m_blocks.size()-1].m_content[i]=0;
+	}
 }
 
 #endif

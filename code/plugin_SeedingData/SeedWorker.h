@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -22,6 +22,7 @@
 #ifndef _SeedWorker
 #define _SeedWorker
 
+#include <code/plugin_SeedingData/GraphPath.h>
 #include <code/plugin_Mock/Parameters.h>
 
 #include <RayPlatform/memory/RingAllocator.h>
@@ -45,6 +46,7 @@ class SeedWorker : public Worker {
 	int m_mainVertexCoverage;
 
 	bool m_hasDeadEnd;
+	bool m_debugSeeds;
 
 	map<Kmer,int> m_cache;
 	WorkerHandle m_workerIdentifier;
@@ -76,10 +78,13 @@ class SeedWorker : public Worker {
 	bool m_ingoingEdgesReceived;
 	int m_wordSize;
 
-	vector<Kmer> m_SEEDING_seed;
-	vector<int> m_coverages;
+	GraphPath m_SEEDING_seed;
 
 	bool m_SEEDING_firstVertexParentTestDone;	
+
+/*
+ * Store visited vertices.
+ */
 	set<Kmer> m_SEEDING_vertices;
 	Kmer m_SEEDING_first;
 	bool m_SEEDING_firstVertexTestDone;
@@ -93,6 +98,7 @@ class SeedWorker : public Worker {
 	int getSize();
 	bool m_SEEDING_1_1_test_done;
 	VirtualCommunicator*m_virtualCommunicator;
+
 public:
 	void constructor(Kmer*vertex,Parameters*parameters,RingAllocator*outboxAllocator,
 		VirtualCommunicator*vc,WorkerHandle workerId,
@@ -101,8 +107,7 @@ public:
 	MessageTag RAY_MPI_TAG_REQUEST_VERTEX_COVERAGE
 );
 
-	vector<Kmer>*getSeed();
-	vector<int>*getCoverageVector();
+	GraphPath*getSeed();
 
 	void do_1_1_test();
 
@@ -118,6 +123,7 @@ public:
 	WorkerHandle getWorkerIdentifier();
 
 	bool hasDeadEnd();
+	void enableDebugMode();
 };
 
 #endif

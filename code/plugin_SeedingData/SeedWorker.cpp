@@ -1,6 +1,6 @@
 /*
- 	Ray
-    Copyright (C) 2010, 2011, 2012 Sébastien Boisvert
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
+    Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
 
@@ -64,6 +64,8 @@ void SeedWorker::work(){
 				m_SEEDING_firstVertexParentTestDone=true;
 				m_SEEDING_vertices.clear();
 				m_SEEDING_seed.clear();
+				m_SEEDING_seed.setKmerLength(m_wordSize);
+
 				// restore original starter.
 				m_SEEDING_currentVertex=m_SEEDING_first;
 				m_SEEDING_testInitiated=false;
@@ -82,7 +84,7 @@ void SeedWorker::work(){
 			if(!m_SEEDING_1_1_test_result){
 				m_finished=true;
 
-				if(m_parameters->debugSeeds()){
+				if(m_debugSeeds){
 					printf("Rank %i next vertex: Coverage= %i, ingoing coverages:",m_rank,m_cache[m_SEEDING_currentVertex]);
 					for(int i=0;i<(int)m_ingoingCoverages.size();i++){
 						printf(" %i",m_ingoingCoverages[i]);
@@ -94,23 +96,32 @@ void SeedWorker::work(){
 					printf("\n");
 
 					int n=100;
-					if((int)m_coverages.size()<n){
-						n=m_coverages.size();
+					if((int)m_SEEDING_seed.size()<n){
+						n=m_SEEDING_seed.size();
 					}
 					printf("Rank %i last %i coverage values in the seed:",m_rank,n);
 					for(int i=n-1;i>=0;i--){
-						printf(" %i",m_coverages[m_coverages.size()-i-1]);
+						int theCoverage=m_SEEDING_seed.getCoverageAt(m_SEEDING_seed.size()-1-i);
+
+						printf(" %i",theCoverage);
 					}
 					printf("\n");
 				}
 			}else{
+
+				Kmer object;
+				if(m_SEEDING_seed.size()>0)
+					m_SEEDING_seed.at(m_SEEDING_seed.size()-1,&object);
+
 				// we want some coherence...
 				if(m_SEEDING_seed.size()>0
-				&&!(m_SEEDING_seed[m_SEEDING_seed.size()-1].isEqual(&m_SEEDING_currentParentVertex))){
+					&&!(object.isEqual(&m_SEEDING_currentParentVertex))){
+
 					m_finished=true;
 				}else{
-					m_SEEDING_seed.push_back(m_SEEDING_currentVertex);
-					m_coverages.push_back(m_cache[m_SEEDING_currentVertex]);
+					m_SEEDING_seed.push_back(&m_SEEDING_currentVertex);
+					m_SEEDING_seed.addCoverageValue(m_cache[m_SEEDING_currentVertex]);
+
 					m_SEEDING_vertices.insert(m_SEEDING_currentVertex);
 					m_SEEDING_currentVertex=m_SEEDING_currentChildVertex;
 					m_SEEDING_testInitiated=false;
@@ -151,6 +162,18 @@ void SeedWorker::constructor(Kmer*key,Parameters*parameters,RingAllocator*outbox
 	m_parameters=parameters;
 
 	m_hasDeadEnd=false;
+
+#ifdef ASSERT
+	assert(m_wordSize!=0);
+#endif
+
+	m_SEEDING_seed.setKmerLength(m_wordSize);
+
+	m_debugSeeds=false;
+}
+
+void SeedWorker::enableDebugMode(){
+	m_debugSeeds=true;
 }
 
 /*
@@ -381,12 +404,8 @@ int SeedWorker::getRank(){
 	return m_rank;
 }
 
-vector<Kmer>*SeedWorker::getSeed(){
+GraphPath*SeedWorker::getSeed(){
 	return &m_SEEDING_seed;
-}
-
-vector<int>*SeedWorker::getCoverageVector(){
-	return &m_coverages;
 }
 
 WorkerHandle SeedWorker::getWorkerIdentifier(){

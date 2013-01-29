@@ -1,5 +1,5 @@
 /*
- 	Ray
+    Ray -- Parallel genome assemblies for parallel DNA sequencing
     Copyright (C) 2010, 2011, 2012, 2013 Sébastien Boisvert
 
 	http://DeNovoAssembler.SourceForge.Net/
@@ -28,10 +28,26 @@
 using namespace std;
 
 #ifdef CONFIG_PATH_STORAGE_BLOCK
-#define CONFIG_PATH_BLOCK_SIZE 1024
 
-struct GraphPathBlock{
-	char m_content[CONFIG_PATH_BLOCK_SIZE];
+/*
+ * The number of symbols per block.
+ */
+#define CONFIG_PATH_BLOCK_SIZE 4096
+
+/*
+ * Each block has 128 uint64_t objects, which can store 4096 nucleotides.
+ * 4096*2 = 8192 bits
+ * 128 * 8 * 8 = 8192 bits
+ */
+
+#define BITS_PER_NUCLEOTIDE 2
+#define BITS_PER_BYTE 8
+
+#define NUMBER_OF_64_BIT_INTEGERS ( CONFIG_PATH_BLOCK_SIZE * BITS_PER_NUCLEOTIDE / sizeof(uint64_t) / BITS_PER_BYTE )
+
+class GraphPathBlock{
+public:
+	uint64_t m_content[NUMBER_OF_64_BIT_INTEGERS];
 };
 #endif
 
@@ -48,6 +64,7 @@ struct GraphPathBlock{
  */
 class GraphPath{
 
+	bool m_errorRaised;
 	int m_kmerLength;
 
 #ifdef CONFIG_PATH_STORAGE_DEFAULT
@@ -72,24 +89,33 @@ class GraphPath{
 	bool m_hasPeakCoverage;
 
 #ifdef CONFIG_PATH_STORAGE_BLOCK
-	void readObjectInBlock(int position,Kmer*object);
-	void writeObjectInBlock(Kmer*a);
+	void readObjectInBlock(int position,Kmer*object)const;
+	void writeObjectInBlock(const Kmer*a);
 #endif
+
+	bool canBeAdded(const Kmer*value)const;
+
+	int getBlockSize()const;
+
+	char readSymbolInBlock(int position)const;
+	void writeSymbolInBlock(int position,char symbol);
+
+	void addBlock();
 
 public:
 	GraphPath();
 
 	int size()const;
-	void at(int i,Kmer*value);
+	void at(int i,Kmer*value)const;
 
-	CoverageDepth getCoverageAt(int i);
+	CoverageDepth getCoverageAt(int i)const;
 	
-	void push_back(Kmer*a);
-	void getVertices(vector<Kmer>*value);
+	void push_back(const Kmer*a);
+	void getVertices(vector<Kmer>*value)const;
 	void clear();
 
 	void addCoverageValue(CoverageDepth value);
-	CoverageDepth getPeakCoverage();
+	CoverageDepth getPeakCoverage()const;
 	void resetCoverageValues();
 
 	void computePeakCoverage();
